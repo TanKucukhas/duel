@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diablo 2 - Character Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a12;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #c4a35a;
+      overflow: hidden;
+    }
+    canvas { image-rendering: pixelated; }
+
+    /* ── Selection Panel ── */
+    #panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
+      border-bottom: 1px solid #3a2a10;
+      z-index: 100;
+      flex-wrap: wrap;
+    }
+    #panel .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #806030;
+      margin-right: -4px;
+    }
+    .char-btn {
+      padding: 6px 14px;
+      border: 1px solid #3a2a10;
+      background: rgba(30,20,10,0.8);
+      color: #c4a35a;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .char-btn:hover {
+      background: rgba(60,40,20,0.8);
+      border-color: #c4a35a;
+    }
+    .char-btn.active {
+      background: rgba(100,70,20,0.6);
+      border-color: #c4a35a;
+      color: #fff;
+      box-shadow: 0 0 8px rgba(196,163,90,0.3);
+    }
+    #weapon-select {
+      padding: 6px 10px;
+      border: 1px solid #3a2a10;
+      background: rgba(30,20,10,0.9);
+      color: #c4a35a;
+      font-size: 13px;
+      font-family: inherit;
+      border-radius: 4px;
+      cursor: pointer;
+      min-width: 160px;
+    }
+    #weapon-select:focus {
+      outline: none;
+      border-color: #c4a35a;
+    }
+    #weapon-select option {
+      background: #1a1008;
+      color: #c4a35a;
+    }
+    #loading {
+      display: none;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #ff9;
+      animation: pulse 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes pulse { from { opacity: 0.5; } to { opacity: 1; } }
+
+    /* ── Controls Help ── */
+    #info {
+      position: fixed;
+      bottom: 50px;
+      left: 10px;
+      font-size: 12px;
+      line-height: 1.6;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 12px;
+      border: 1px solid #3a2a10;
+      border-radius: 4px;
+      color: #907040;
+    }
+    #info b { color: #c4a35a; }
+
+    /* ── Debug ── */
+    #debug {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      font-size: 11px;
+      font-family: monospace;
+      background: rgba(0,0,0,0.7);
+      padding: 6px 10px;
+      border: 1px solid #222;
+      border-radius: 4px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <span class="label">Class</span>
+    <div id="char-buttons"></div>
+    <span class="label" style="margin-left: 8px">Weapon</span>
+    <select id="weapon-select"></select>
+    <span id="loading">Loading...</span>
+  </div>
+  <div id="info">
+    <b>WASD/Arrows</b> — Move (hold <b>Shift</b> to run)<br>
+    <b>Space</b> — Attack &nbsp; <b>Q</b> — Cast &nbsp; <b>E</b> — Kick<br>
+    <b>F</b> — Warcry &nbsp; <b>X</b> — Get Hit &nbsp; <b>Z</b> — Death &nbsp; <b>B</b> — Block
+  </div>
+  <div id="debug"></div>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script>
+  <script src="main.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Large game data (ISOs, MPQ archives, extracted files)
+Diablo2_all/
+MPQExtractor/
+
+# Generated sprite assets (can be regenerated with tools/)
+demo/assets/sprites/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# Cloned reference repos
+pcx-to-spritesheet/
