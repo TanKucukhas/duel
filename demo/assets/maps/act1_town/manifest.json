@@ -1,0 +1,28 @@
+{
+  "act": 1,
+  "area": "town",
+  "tileWidth": 160,
+  "tileHeight": 80,
+  "stamps": {
+    "townN1.ds1": {
+      "file": "townN1.png",
+      "width": 7840,
+      "height": 4212
+    },
+    "townE1.ds1": {
+      "file": "townE1.png",
+      "width": 7840,
+      "height": 3940
+    },
+    "townS1.ds1": {
+      "file": "townS1.png",
+      "width": 7840,
+      "height": 3940
+    },
+    "townW1.ds1": {
+      "file": "townW1.png",
+      "width": 7840,
+      "height": 4252
+    }
+  }
+}

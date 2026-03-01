@@ -1,6 +1,5 @@
 (async () => {
   // ── D2 Direction Mapping ──
-  // DCC 16-direction files use this internal order.
   const DIR_MAP = {
     S: 4, SW: 0, W: 5, NW: 1, N: 6, NE: 2, E: 7, SE: 3,
   };
@@ -15,35 +14,37 @@
     SE: { x:  1, y:  1 },
   };
 
-  const SCALE = 2.5;
+  const SCALE = 1.25;
   const MOVE_SPEED = 3;
 
   // ── PixiJS Setup ──
   const app = new PIXI.Application();
   await app.init({
-    width: 900,
-    height: 650,
-    backgroundColor: 0x111118,
+    resizeTo: window,
+    backgroundColor: 0x0a0a12,
     antialias: false,
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
   });
   document.body.appendChild(app.canvas);
 
-  // ── Ground Grid ──
-  const ground = new PIXI.Graphics();
-  ground.setStrokeStyle({ width: 1, color: 0x1a1a2e });
-  for (let x = 0; x < 900; x += 50) ground.moveTo(x, 0).lineTo(x, 650);
-  for (let y = 0; y < 650; y += 50) ground.moveTo(0, y).lineTo(900, y);
-  ground.stroke();
-  app.stage.addChild(ground);
+  // ── World Container (camera follows character) ──
+  const world = new PIXI.Container();
+  app.stage.addChild(world);
+
+  // ── Map Layer ──
+  const mapContainer = new PIXI.Container();
+  world.addChild(mapContainer);
 
   // ── Character Sprite ──
   const character = new PIXI.Sprite(PIXI.Texture.EMPTY);
   character.scale.set(SCALE);
-  character.x = app.screen.width / 2;
-  character.y = app.screen.height / 2;
-  app.stage.addChild(character);
+  character.zIndex = 10;
+  world.addChild(character);
+
+  // World position of the character (in map pixels)
+  let charWorldX = 0;
+  let charWorldY = 0;
 
   // ── Animation State ──
   let animations = {};
@@ -58,6 +59,11 @@
   let currentCharCode = null;
   let currentWeapon = null;
 
+  // ── Map state ──
+  let mapLoaded = false;
+  let mapWidth = 0;
+  let mapHeight = 0;
+
   // ── Load Manifest ──
   const CB = Date.now();
   let manifest = null;
@@ -67,6 +73,56 @@
   } catch (e) {
     console.error('Failed to load manifest:', e);
   }
+
+  // ── Load Map ──
+  async function loadMap() {
+    try {
+      const resp = await fetch(`assets/maps/act1_town/manifest.json?v=${CB}`);
+      const mapManifest = await resp.json();
+
+      // Load the main town stamp (townN1 is the north quarter)
+      const stamps = Object.entries(mapManifest.stamps);
+      if (stamps.length === 0) return;
+
+      // Load the first stamp as the map
+      const [name, info] = stamps[0];
+      const tex = await PIXI.Assets.load(`assets/maps/act1_town/${info.file}?v=${CB}`);
+      tex.source.scaleMode = 'nearest';
+
+      const mapSprite = new PIXI.Sprite(tex);
+      mapSprite.scale.set(1);
+      mapContainer.addChild(mapSprite);
+
+      mapWidth = info.width;
+      mapHeight = info.height;
+      mapLoaded = true;
+
+      // Place character near the center of the map
+      charWorldX = mapWidth / 2;
+      charWorldY = mapHeight / 2;
+
+      console.log(`Map loaded: ${name} (${mapWidth}x${mapHeight})`);
+    } catch (e) {
+      console.warn('No map available, using grid background:', e.message);
+      _createFallbackGrid();
+    }
+  }
+
+  function _createFallbackGrid() {
+    const ground = new PIXI.Graphics();
+    ground.setStrokeStyle({ width: 1, color: 0x1a1a2e });
+    const size = 4000;
+    for (let x = -size; x <= size; x += 50) ground.moveTo(x, -size).lineTo(x, size);
+    for (let y = -size; y <= size; y += 50) ground.moveTo(-size, y).lineTo(size, y);
+    ground.stroke();
+    mapContainer.addChild(ground);
+    mapWidth = size * 2;
+    mapHeight = size * 2;
+    charWorldX = 0;
+    charWorldY = 0;
+  }
+
+  await loadMap();
 
   // ── Build UI ──
   const charButtonsEl = document.getElementById('char-buttons');
@@ -79,7 +135,6 @@
   };
 
   if (manifest) {
-    // Create character buttons
     for (const charCode of Object.keys(manifest.characters)) {
       const btn = document.createElement('button');
       btn.className = 'char-btn';
@@ -102,7 +157,6 @@
       weaponSelectEl.appendChild(opt);
     }
 
-    // Default to HTH if available, else first weapon
     if (weapons['HTH']) {
       weaponSelectEl.value = 'HTH';
     }
@@ -118,7 +172,6 @@
     const weaponInfo = manifest.characters[charCode].weapons[weapon];
     if (!weaponInfo) return;
 
-    // Skip if already loaded
     if (currentCharCode === charCode && currentWeapon === weapon) return;
 
     loadingEl.style.display = 'inline';
@@ -137,7 +190,6 @@
         }
       }
 
-      // Load new spritesheet textures
       const newAnimations = {};
       const basePath = `assets/sprites/${charCode.toLowerCase()}/${weapon}/`;
 
@@ -167,13 +219,11 @@
       currentCharCode = charCode;
       currentWeapon = weapon;
 
-      // Reset animation state
       oneShotAnim = null;
       oneShotCallback = null;
       currentFrame = 0;
       animTimer = 0;
 
-      // Pick a valid initial animation
       if (animations.neutral) {
         currentAnim = 'neutral';
       } else {
@@ -189,15 +239,11 @@
   }
 
   function selectCharacter(charCode) {
-    // Update button states
     document.querySelectorAll('.char-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.char === charCode);
     });
 
-    // Update weapon dropdown
     updateWeaponDropdown(charCode);
-
-    // Load character with selected weapon
     loadCharacter(charCode, weaponSelectEl.value);
   }
 
@@ -239,7 +285,6 @@
     const k = e.key.toLowerCase();
     if (!keys[k]) keys[k] = true;
 
-    // Number keys 1-7 for character selection
     if (manifest && k >= '1' && k <= '9') {
       const chars = Object.keys(manifest.characters);
       const idx = parseInt(k) - 1;
@@ -250,55 +295,46 @@
       }
     }
 
-    // Space = attack
     if (k === ' ' && !oneShotAnim) {
       playOneShot(animations.attack1 ? 'attack1' : 'attack2');
       e.preventDefault();
       return;
     }
-    // Q = cast
     if (k === 'q' && !oneShotAnim) {
       playOneShot('cast');
       e.preventDefault();
       return;
     }
-    // E = kick
     if (k === 'e' && !oneShotAnim) {
       playOneShot('kick');
       e.preventDefault();
       return;
     }
-    // F = skill1 (warcry)
     if (k === 'f' && !oneShotAnim) {
       playOneShot('skill1');
       e.preventDefault();
       return;
     }
-    // X = get hit
     if (k === 'x' && !oneShotAnim) {
       playOneShot('gethit');
       e.preventDefault();
       return;
     }
-    // B = block
     if (k === 'b' && !oneShotAnim) {
       playOneShot('block');
       e.preventDefault();
       return;
     }
-    // R = attack2
     if (k === 'r' && !oneShotAnim) {
       playOneShot('attack2');
       e.preventDefault();
       return;
     }
-    // T = throw
     if (k === 't' && !oneShotAnim) {
       playOneShot('throw');
       e.preventDefault();
       return;
     }
-    // Z = death
     if (k === 'z' && !oneShotAnim) {
       playOneShot('death', () => {
         if (animations.dead) {
@@ -318,6 +354,16 @@
     keys[e.key.toLowerCase()] = false;
     e.preventDefault();
   });
+
+  // ── Zoom with mouse wheel ──
+  let zoomLevel = 1.5;
+  const MIN_ZOOM = 0.2;
+  const MAX_ZOOM = 5;
+  window.addEventListener('wheel', (e) => {
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
+    e.preventDefault();
+  }, { passive: false });
 
   // ── Get Input Direction ──
   function getInputDirection() {
@@ -354,14 +400,14 @@
       const vec = DIR_VECTORS[dir];
       const len = Math.sqrt(vec.x * vec.x + vec.y * vec.y);
       const speed = isRunning ? MOVE_SPEED * 1.8 : MOVE_SPEED;
-      character.x += (vec.x / len) * speed * dt;
-      character.y += (vec.y / len) * speed * dt;
+      charWorldX += (vec.x / len) * speed * dt;
+      charWorldY += (vec.y / len) * speed * dt;
 
-      const pad = 80;
-      if (character.x < -pad) character.x = app.screen.width + pad;
-      if (character.x > app.screen.width + pad) character.x = -pad;
-      if (character.y < -pad) character.y = app.screen.height + pad;
-      if (character.y > app.screen.height + pad) character.y = -pad;
+      // Clamp to map bounds
+      if (mapLoaded) {
+        charWorldX = Math.max(0, Math.min(mapWidth, charWorldX));
+        charWorldY = Math.max(0, Math.min(mapHeight, charWorldY));
+      }
 
       const moveAnim = isRunning && animations.run ? 'run' : 'walk';
       if (currentAnim !== moveAnim) setAnimation(moveAnim);
@@ -415,11 +461,21 @@
       anim.meta.anchorY / anim.meta.frameHeight,
     );
 
+    // ── Position character in world space ──
+    character.x = charWorldX;
+    character.y = charWorldY;
+
+    // ── Camera: center the world so character is on screen center ──
+    world.scale.set(zoomLevel);
+    world.x = app.screen.width / 2 - charWorldX * zoomLevel;
+    world.y = app.screen.height / 2 - charWorldY * zoomLevel;
+
     // ── Debug ──
     debugEl.textContent =
       `${currentCharCode || '?'}/${currentWeapon || '?'} | Anim: ${animName} | Dir: ${currentDir} (row ${dccRow}) | ` +
       `Frame: ${currentFrame + 1}/${anim.meta.framesPerDirection} | ` +
-      `FPS: ${fps.toFixed(1)} | ` +
+      `FPS: ${fps.toFixed(1)} | Zoom: ${zoomLevel.toFixed(1)}x | ` +
+      `Pos: ${Math.round(charWorldX)},${Math.round(charWorldY)} | ` +
       `${oneShotAnim ? 'ONE-SHOT' : isMoving ? (isRunning ? 'RUNNING' : 'WALKING') : 'IDLE'}`;
   });
 
